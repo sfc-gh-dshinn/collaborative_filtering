@@ -116,14 +116,14 @@ class SVD():
             ``None``.
         verbose: If ``True``, prints the current epoch. Default is ``False``.
 
-    Attributes:
-        pu(numpy array of size (n_users, n_factors)): The user factors (only
+    Attributes (+1 is empty to capture default return of 0s):
+        pu(numpy array of size (n_users+1, n_factors)): The user factors (only
             exists if ``fit()`` has been called)
-        qi(numpy array of size (n_items, n_factors)): The item factors (only
+        qi(numpy array of size (n_items+1, n_factors)): The item factors (only
             exists if ``fit()`` has been called)
-        bu(numpy array of size (n_users)): The user biases (only
+        bu(numpy array of size (n_users+1)): The user biases (only
             exists if ``fit()`` has been called)
-        bi(numpy array of size (n_items)): The item biases (only
+        bi(numpy array of size (n_items+1)): The item biases (only
             exists if ``fit()`` has been called)
     """
 
