@@ -1,0 +1,10 @@
+channels:
+  - https://repo.anaconda.com/pkgs/snowflake
+dependencies:
+  - python=3.11
+  - jupyter
+  - snowflake-snowpark-python
+  - scikit-learn
+  - pandas
+  - numpy
+  - numba
