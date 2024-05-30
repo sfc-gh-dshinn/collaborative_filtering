@@ -289,28 +289,30 @@ class SVD():
         self.qi = np.asarray(qi)
     
 
-    def estimate(self, u, i):
-        # Should we cythonize this as well?
+    def predict(self, X):
+        # Data validation and change to numpy.ndarray if pandas
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise TypeError("X must be pd.DataFrame or np.ndarray)")
 
-        known_user = self.trainset.knows_user(u)
-        known_item = self.trainset.knows_item(i)
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+
+        if X.shape[1] != 2:
+            raise ValueError("X must have 2 columns")
+
+        # Note that the last index represents missing and will return 0s
+        array_users = np.asarray([self.mapping_user.get(x, self.n_users) for x in X[:, 0]])
+        array_items = np.asarray([self.mapping_item.get(x, self.n_items) for x in X[:, 1]])
+
+        bus = self.bu[array_users]
+        bis = self.bi[array_items]
+
+        pus = self.pu[array_users]
+        qis = self.qi[array_items]
+
+        est = bus + bis + (pus * qis).sum(1)
 
         if self.biased:
-            est = self.trainset.global_mean
-
-            if known_user:
-                est += self.bu[u]
-
-            if known_item:
-                est += self.bi[i]
-
-            if known_user and known_item:
-                est += np.dot(self.qi[i], self.pu[u])
-
-        else:
-            if known_user and known_item:
-                est = np.dot(self.qi[i], self.pu[u])
-            else:
-                raise PredictionImpossible('User and item are unknown.')
+            est +=  self.global_mean
 
         return est
