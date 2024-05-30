@@ -4,6 +4,7 @@ factorization.
 """
 
 import numbers
+import numba
 import numpy as np
 import pandas as pd
 
@@ -244,35 +245,83 @@ class SVD():
             array_items = array_items[shuffle_order]
             array_ratings = y[shuffle_order]
 
-        if not biased:
-            global_mean = 0
+        # In order for numba to work, need to pass in all variables
+        @numba.njit
+        def run_svd(
+            array_items,
+            array_ratings,
+            array_users,
+            bi,
+            biased,
+            bu,
+            global_mean,
+            lr_bi,
+            lr_bu,
+            lr_pu,
+            lr_qi,
+            n_epochs,
+            n_factors,
+            pu,
+            qi,
+            reg_bi,
+            reg_bu,
+            reg_pu,
+            reg_qi,
+            verbose):
 
-        for current_epoch in range(self.n_epochs):
-            if self.verbose:
-                print("Processing epoch {}".format(current_epoch))
+            if not biased:
+                global_mean = 0
 
-            for n_index in range(X.shape[0]):
-                u = array_users[n_index]
-                i = array_items[n_index]
-                r = array_ratings[n_index]
+            for current_epoch in range(n_epochs):
+                if verbose:
+                    print("Processing epoch", current_epoch)
 
-                # compute current error
-                dot = 0  # <q_i, p_u>
-                for f in range(n_factors):
-                    dot += qi[i, f] * pu[u, f]
-                err = r - (global_mean + bu[u] + bi[i] + dot)
+                for n_index in range(array_users.shape[0]):
+                    u = array_users[n_index]
+                    i = array_items[n_index]
+                    r = array_ratings[n_index]
 
-                # update biases
-                if biased:
-                    bu[u] += lr_bu * (err - reg_bu * bu[u])
-                    bi[i] += lr_bi * (err - reg_bi * bi[i])
+                    # compute current error
+                    dot = 0  # <q_i, p_u>
+                    for f in range(n_factors):
+                        dot += qi[i, f] * pu[u, f]
+                    err = r - (global_mean + bu[u] + bi[i] + dot)
 
-                # update factors
-                for f in range(n_factors):
-                    puf = pu[u, f]
-                    qif = qi[i, f]
-                    pu[u, f] += lr_pu * (err * qif - reg_pu * puf)
-                    qi[i, f] += lr_qi * (err * puf - reg_qi * qif)
+                    # update biases
+                    if biased:
+                        bu[u] += lr_bu * (err - reg_bu * bu[u])
+                        bi[i] += lr_bi * (err - reg_bi * bi[i])
+
+                    # update factors
+                    for f in range(n_factors):
+                        puf = pu[u, f]
+                        qif = qi[i, f]
+                        pu[u, f] += lr_pu * (err * qif - reg_pu * puf)
+                        qi[i, f] += lr_qi * (err * puf - reg_qi * qif)
+            return bu, bi, pu, qi
+
+        bu, bi, pu, qi = run_svd(
+            array_items=array_items,
+            array_ratings=array_ratings,
+            array_users=array_users,
+            bi=bi,
+            biased = self.biased,
+            bu=bu,
+            global_mean = self.global_mean,
+            lr_bi = self.lr_bi,
+            lr_bu = self.lr_bu,
+            lr_pu = self.lr_pu,
+            lr_qi = self.lr_qi,
+            n_epochs=self.n_epochs,
+            n_factors = self.n_factors,
+            pu=pu,
+            qi=qi,
+            reg_bi = self.reg_bi,
+            reg_bu = self.reg_bu,
+            reg_pu = self.reg_pu,
+            reg_qi = self.reg_qi,
+            verbose=self.verbose,
+            )
 
         self.bu = np.asarray(bu)
         self.bi = np.asarray(bi)
