@@ -131,7 +131,7 @@ class SVD():
                  init_std_dev=.1, lr_all=.005,
                  reg_all=.02, lr_bu=None, lr_bi=None, lr_pu=None, lr_qi=None,
                  reg_bu=None, reg_bi=None, reg_pu=None, reg_qi=None,
-                 random_state=None, verbose=False):
+                 random_state=None, verbose=False, shuffle=True):
 
         self.n_factors = n_factors
         self.n_epochs = n_epochs
@@ -148,6 +148,7 @@ class SVD():
         self.reg_qi = reg_qi if reg_qi is not None else reg_all
         self.random_state = random_state
         self.verbose = verbose
+        self.shuffle = shuffle
 
     def fit(self, X, y):
         # OK, let's breath. I've seen so many different implementation of this
@@ -241,6 +242,17 @@ class SVD():
         reg_pu = self.reg_pu
         reg_qi = self.reg_qi
 
+        # Create integer replacements for user and items, shuffle if True
+        array_users = pd.Series(X[:, 0]).map(self.mapping_user).values
+        array_items = pd.Series(X[:, 1]).map(self.mapping_item).values
+        array_ratings = y
+
+        if self.shuffle:
+            shuffle_order = np.random.choice(range(X.shape[0]), X.shape[0], replace=False)
+            array_users = array_users[shuffle_order]
+            array_items = array_items[shuffle_order]
+            array_ratings = y[shuffle_order]
+
         if not biased:
             global_mean = 0
 
@@ -248,7 +260,11 @@ class SVD():
             if self.verbose:
                 print("Processing epoch {}".format(current_epoch))
 
-            for u, i, r in trainset.all_ratings():
+            for n_index in range(X.shape[0]):
+                u = array_users[n_index]
+                i = array_items[n_index]
+                r = array_ratings[n_index]
+
                 # compute current error
                 dot = 0  # <q_i, p_u>
                 for f in range(n_factors):
