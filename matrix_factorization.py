@@ -3,16 +3,7 @@ the :mod:`matrix_factorization` module includes some algorithms using matrix
 factorization.
 """
 
-cimport numpy as np  # noqa
-import numpy as np
-from libc.math cimport sqrt
-
-from .predictions import PredictionImpossible
-from ..utils import get_rng
-
-import cython
-from libc.stdlib cimport malloc, free
-
+import numbers
 import numpy as np
 import pandas as pd
 
@@ -209,7 +200,7 @@ class SVD():
         # New calculations since removing dependence on `trainset`
         self.global_mean = y.mean()
         self.mapping_user = {user_id: x for x, user_id in enumerate(np.unique(X[:, 0]))}
-        self.mapping_item = {item_id: x for x, user_id in enumerate(np.unique(X[:, 1]))}
+        self.mapping_item = {item_id: x for x, item_id in enumerate(np.unique(X[:, 1]))}
         self.n_users = len(self.mapping_user)
         self.n_items = len(self.mapping_item)
 
@@ -217,9 +208,9 @@ class SVD():
 
         # Note: last index for all factors are 0.0 for easy default for new users or items
         # user biases, last user used for default if new
-        bu = np.zeros(trainset.n_users + 1, dtype=np.double)
+        bu = np.zeros(self.n_users + 1, dtype=np.double)
         # item biases, last item used for default if new
-        bi = np.zeros(trainset.n_items + 1, dtype=np.double)
+        bi = np.zeros(self.n_items + 1, dtype=np.double)
         # user factors, last user used for default if new
         pu = rng.normal(self.init_mean, self.init_std_dev, size=(self.n_users + 1, self.n_factors))
         pu[-1] = 0.0
@@ -316,3 +307,23 @@ class SVD():
             est +=  self.global_mean
 
         return est
+
+
+def get_rng(random_state):
+    """Return a 'validated' RNG.
+
+    If random_state is None, use RandomState singleton from numpy.  Else if
+    it's an integer, consider it's a seed and initialized an rng with that
+    seed. If it's already an rng, return it.
+    """
+    if random_state is None:
+        return np.random.mtrand._rand
+    elif isinstance(random_state, (numbers.Integral, np.integer)):
+        return np.random.RandomState(random_state)
+    if isinstance(random_state, np.random.RandomState):
+        return random_state
+    raise ValueError(
+        "Wrong random state. Expecting None, an int or a numpy "
+        "RandomState instance, got a "
+        "{}".format(type(random_state))
+    )
