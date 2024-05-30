@@ -7,15 +7,17 @@ cimport numpy as np  # noqa
 import numpy as np
 from libc.math cimport sqrt
 
-from .algo_base import AlgoBase
 from .predictions import PredictionImpossible
 from ..utils import get_rng
 
 import cython
 from libc.stdlib cimport malloc, free
 
+import numpy as np
+import pandas as pd
 
-class SVD(AlgoBase):
+
+class SVD():
     """The famous *SVD* algorithm, as popularized by `Simon Funk
     <https://sifter.org/~simon/journal/20061211.html>`_ during the Netflix
     Prize. When baselines are not used, this is equivalent to Probabilistic
@@ -147,17 +149,7 @@ class SVD(AlgoBase):
         self.random_state = random_state
         self.verbose = verbose
 
-        AlgoBase.__init__(self)
-
-    def fit(self, trainset):
-
-        AlgoBase.fit(self, trainset)
-        self.sgd(trainset)
-
-        return self
-
-    def sgd(self, trainset):
-
+    def fit(self, X, y):
         # OK, let's breath. I've seen so many different implementation of this
         # algorithm that I just not sure anymore of what it should do. I've
         # implemented the version as described in the BellKor papers (RS
@@ -190,33 +182,64 @@ class SVD(AlgoBase):
         # anymore, we need to compute the dot products by hand, and update
         # user and items factors by iterating over all factors...
 
+        # Data validation and change to numpy.ndarray if pandas
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise TypeError("X must be pd.DataFrame or np.ndarray)")
+
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+
+        if X.shape[1] != 2:
+            raise ValueError("X must have 2 columns")
+
+        if not isinstance(y, (pd.Series, np.ndarray)):
+            raise TypeError("y must be pd.Series or np.ndarray)")
+
+        if isinstance(y, pd.Series):
+            y = y.values
+
+        # Make sure y only has single dimension
+        if len(y.shape) != 1:
+            raise ValueError("y must be a single dimension array .shape == (n,)")
+
+        if X.shape[0] != y.shape[0]:
+            raise ValueError("X and y must have the same length")
+
+        # New calculations since removing dependence on `trainset`
+        self.global_mean = y.mean()
+        self.mapping_user = {user_id: x for x, user_id in enumerate(np.unique(X[:, 0]))}
+        self.mapping_item = {item_id: x for x, user_id in enumerate(np.unique(X[:, 1]))}
+        self.n_users = len(self.mapping_user)
+        self.n_items = len(self.mapping_item)
+
         rng = get_rng(self.random_state)
 
-        # user biases
-        cdef double [::1] bu = np.zeros(trainset.n_users, dtype=np.double)
-        # item biases
-        cdef double [::1] bi = np.zeros(trainset.n_items, dtype=np.double)
-        # user factors
-        cdef double [:, ::1] pu = rng.normal(self.init_mean, self.init_std_dev, size=(trainset.n_users, self.n_factors))
-        # item factors
-        cdef double [:, ::1] qi = rng.normal(self.init_mean, self.init_std_dev, size=(trainset.n_items, self.n_factors))
+        # Note: last index for all factors are 0.0 for easy default for new users or items
+        # user biases, last user used for default if new
+        bu = np.zeros(trainset.n_users + 1, dtype=np.double)
+        # item biases, last item used for default if new
+        bi = np.zeros(trainset.n_items + 1, dtype=np.double)
+        # user factors, last user used for default if new
+        pu = rng.normal(self.init_mean, self.init_std_dev, size=(self.n_users + 1, self.n_factors))
+        pu[-1] = 0.0
+        # item factors, last item used for default if new
+        qi = rng.normal(self.init_mean, self.init_std_dev, size=(self.n_items + 1, self.n_factors))
+        qi[-1] = 0.0
 
-        cdef int u, i, f
-        cdef int n_factors = self.n_factors
-        cdef bint biased = self.biased
+        n_factors = self.n_factors
+        biased = self.biased
 
-        cdef double r, err, dot, puf, qif
-        cdef double global_mean = self.trainset.global_mean
+        global_mean = self.global_mean
 
-        cdef double lr_bu = self.lr_bu
-        cdef double lr_bi = self.lr_bi
-        cdef double lr_pu = self.lr_pu
-        cdef double lr_qi = self.lr_qi
+        lr_bu = self.lr_bu
+        lr_bi = self.lr_bi
+        lr_pu = self.lr_pu
+        lr_qi = self.lr_qi
 
-        cdef double reg_bu = self.reg_bu
-        cdef double reg_bi = self.reg_bi
-        cdef double reg_pu = self.reg_pu
-        cdef double reg_qi = self.reg_qi
+        reg_bu = self.reg_bu
+        reg_bi = self.reg_bi
+        reg_pu = self.reg_pu
+        reg_qi = self.reg_qi
 
         if not biased:
             global_mean = 0
