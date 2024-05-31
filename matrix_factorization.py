@@ -240,7 +240,7 @@ class SVD():
         array_ratings = y
 
         if self.shuffle:
-            shuffle_order = rng.random.choice(range(X.shape[0]), X.shape[0], replace=False)
+            shuffle_order = rng.choice(range(X.shape[0]), X.shape[0], replace=False)
             array_users = array_users[shuffle_order]
             array_items = array_items[shuffle_order]
             array_ratings = y[shuffle_order]
