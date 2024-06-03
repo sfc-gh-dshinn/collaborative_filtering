@@ -7,9 +7,10 @@ import numbers
 import numba
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator
 
 
-class SVD():
+class SVD(BaseEstimator):
     """The famous *SVD* algorithm, as popularized by `Simon Funk
     <https://sifter.org/~simon/journal/20061211.html>`_ during the Netflix
     Prize. When baselines are not used, this is equivalent to Probabilistic
