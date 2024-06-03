@@ -7,10 +7,10 @@ import numbers
 import numba
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, RegressorMixin
 
 
-class SVD(BaseEstimator):
+class SVD(RegressorMixin, BaseEstimator):
     """The famous *SVD* algorithm, as popularized by `Simon Funk
     <https://sifter.org/~simon/journal/20061211.html>`_ during the Netflix
     Prize. When baselines are not used, this is equivalent to Probabilistic
@@ -326,10 +326,13 @@ class SVD(BaseEstimator):
             verbose=self.verbose,
             )
 
-        self.bu = np.asarray(bu)
-        self.bi = np.asarray(bi)
-        self.pu = np.asarray(pu)
-        self.qi = np.asarray(qi)
+        self.bu_ = np.asarray(bu)
+        self.bi_ = np.asarray(bi)
+        self.pu_ = np.asarray(pu)
+        self.qi_ = np.asarray(qi)
+
+        self.is_fitted_ = True
+        return self
     
 
     def predict(self, X):
@@ -347,11 +350,11 @@ class SVD(BaseEstimator):
         array_users = np.asarray([self.mapping_user.get(x, self.n_users) for x in X[:, 0]])
         array_items = np.asarray([self.mapping_item.get(x, self.n_items) for x in X[:, 1]])
 
-        bus = self.bu[array_users]
-        bis = self.bi[array_items]
+        bus = self.bu_[array_users]
+        bis = self.bi_[array_items]
 
-        pus = self.pu[array_users]
-        qis = self.qi[array_items]
+        pus = self.pu_[array_users]
+        qis = self.qi_[array_items]
 
         est = bus + bis + (pus * qis).sum(1)
 
